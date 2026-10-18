@@ -69,3 +69,11 @@ Computer Vision University Project
         <td>Ajută la realizarea etapei de preprocesare (Image <br>Enhancement) din schema bloc a proiectului.</td>
     </tr>
 </table>
+
+```mermaid
+graph TD
+    A[Date de intrare <br/> Setul Stanford MRNet] --> B[Preprocesarea imaginilor]
+    B --> C[Augmentarea datelor]
+    C --> D[Modelul de Deep Learning <br/> CNN / ViT]
+    D --> E[Diagnosticare <br/> Clasificare]
+    D --> F[Explicabilitate <br/> White Box / Grad-CAM]
