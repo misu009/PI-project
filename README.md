@@ -1,4 +1,4 @@
-# PI-project
+Title: RMN Classifier
 Computer Vision University Project
 
 <table>
@@ -77,3 +77,11 @@ graph TD
     C --> D[Modelul de Deep Learning <br/> CNN / ViT]
     D --> E[Diagnosticare <br/> Clasificare]
     D --> F[Explicabilitate <br/> White Box / Grad-CAM]
+```
+
+- Date de intrare (Setul Stanford MRNet): Sursa inițială a datelor. Aplicația va prelua imagini RMN brute din baza de date publică MRNet de la Stanford, care conține scanări etichetate pentru diverse afecțiuni ale genunchiului (ex. rupturi de ligament încrucișat anterior sau leziuni de menisc).
+- Preprocesarea imaginilor: Modul esențial pentru pregătirea datelor. Imaginile RMN vor fi standardizate prin tăierea zonelor de fundal inutil, normalizarea intensității pixelilor (ex. normalizare Z-score) și redimensionarea la o dimensiune fixă cerută de rețeaua neuronală.
+- Augmentarea datelor: Tehnică aplicată exclusiv în faza de antrenament. Prin aplicarea unor transformări minore (rotații, flipping orizontal, ajustări de contrast), algoritmul este forțat să învețe trăsăturile anatomice generalizabile, prevenind overfitting-ul.
+- Modelul de Deep Learning: "Creierul" aplicației. Va consta într-o arhitectură neuronală avansată (CNN îmbunătățit cu Mecanisme de Atenție sau Vision Transformer) cu rolul de a extrage trăsăturile anatomice complexe din RMN-uri.
+- Diagnosticare (Clasificare): Output-ul principal al sistemului. Pe baza trăsăturilor extrase, acest modul va calcula probabilitatea și va emite o predicție clară (ex. "Genunchi Normal" vs. "Ruptură de Menisc").
+- Explicabilitate (White Box / Grad-CAM): Componentă pentru mediul clinic. Modulul va prelua decizia modelului DL și va genera o hartă termică (saliency map) suprapusă peste RMN-ul original, evidențiind vizual pixelii relevanți pe care s-a bazat diagnosticul.
