@@ -66,7 +66,7 @@ NUM_OUTPUT = 1
 # NUM_OUTPUT = 3
 
 # MY INTERMEDIATE DATA
-DATA_PATH = '/content/dataset/'
+DATA_PATH = '/content/dataset_preprocesat/'
 
 # MODELS
 TRAIN_MODELS_PATH = '/content/drive/MyDrive/Proiect_RMN/models/training/'

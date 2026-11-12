@@ -10,7 +10,7 @@ def evalueaza_modelul():
     cale_csv = 'dataset/valid_abnormal.csv'
     folder_rmn = 'dataset/valid_files/axial/'
 
-    model = AdvancedMRNet(model_name='seresnet50', pretrained=False)
+    model = AdvancedMRNet(model_name='resnet18', pretrained=False)
     
     checkpoint = torch.load(cale_model, map_location=torch.device('cpu'), weights_only=False)
     
@@ -21,14 +21,14 @@ def evalueaza_modelul():
         
     model.eval()
 
-    print(f"=> Citim baremul de corectare din: {cale_csv}")
+    print(f"Citim baremul de corectare din: {   cale_csv}")
     df = pd.read_csv(cale_csv, header=None, names=['id', 'label'])
     
     y_adevarat = [] 
     y_predictii_prob = [] 
     y_predictii_binar = [] 
     
-    print("=> Incepem analizarea celor 119 pacienti. Te rog asteapta...")
+    print("=> Incepem analizarea celor 119 pacienti")
     
     with torch.no_grad():
         for index, row in df.iterrows():

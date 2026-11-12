@@ -25,7 +25,7 @@ class AdvancedMRNet(nn.Module):
 
 def get_model(name):
     print('[CHOOSE] Getting model:', name)
-    if name in ['seresnet50', 'legacy_seresnet50', 'vit_base_patch16_224', 'vit_tiny_patch16_224']:
+    if name in ['resnet18', 'seresnet50', 'legacy_seresnet50', 'vit_base_patch16_224', 'vit_tiny_patch16_224']:
         return AdvancedMRNet(model_name=name, pretrained=True)
     else:
-        raise ValueError('Modelul cerut nu este seresnet50 sau vit.')
+        raise ValueError(f'Modelul cerut "{name}" nu este suportat. Alege dintre: resnet18, seresnet50, vit_base_patch16_224, etc.')
