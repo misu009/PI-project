@@ -72,6 +72,9 @@ def parse_arguments():
     args = parser.parse_args()
     return args
 
+def collate_fn(batch):
+    # This keeps the varying-sized 3D volumes separate in a list rather than stacking them
+    return tuple(zip(*batch))
 
 def run(args):
     """ Run training """
@@ -154,12 +157,12 @@ LR: {}""".format(
     train_dataset = MRDataset(args.task, args.plane, train_val_test='train', cut=cut, 
         augment=augment, augment_prob=augment_prob)
     train_loader = torch.utils.data.DataLoader(
-        train_dataset, batch_size=1, shuffle=True, drop_last=False)
+        train_dataset, batch_size=8, shuffle=True, drop_last=False, collate_fn=collate_fn)
 
     validation_dataset = MRDataset(args.task, args.plane, train_val_test='valid', cut=cut, 
         augment=augment, augment_prob=augment_prob)
     validation_loader = torch.utils.data.DataLoader(
-        validation_dataset, batch_size=1, shuffle=False, drop_last=False)
+        validation_dataset, batch_size=8, shuffle=False, drop_last=False, collate_fn=collate_fn)
 
     # MODEL
 
@@ -321,110 +324,74 @@ LR: {}""".format(
 
 
 def train_model(model, train_loader, device, epoch, num_epochs, optimizer, writer, log_file, current_lr, log_every=100):
-    
     print('[TRAIN] Train model')
-
-    # Train mode
     _ = model.train()
-
-    # Clean up
     torch.cuda.empty_cache()
+
+    scaler = torch.cuda.amp.GradScaler()
 
     y_preds = []
     y_trues = []
     losses = []
-
     total_step = len(train_loader)
 
-    for i, (index, image, label, weight) in enumerate(train_loader):
-
-        # print(i)
-        # print(image.shape)
-        # print('Memory allocated: {:.2f} MiB'.format(torch.cuda.memory_allocated() / 1.049e6))
-        # print('Memory cached: {:.2f} MiB'.format(torch.cuda.memory_cached() / 1.049e6))
-        
-        # clear out the gradients
+    for i, (indices, images, labels, weights) in enumerate(train_loader):
         optimizer.zero_grad()
+        
+        batch_loss_val = 0
+        for j in range(len(images)):
+            image = images[j].to(device)
+            label = labels[j].to(device)
+            weight = weights[j].to(device)
 
-        # Copy to CUDA device
-        image = image.to(device)
-        label = label.to(device)
-        weight = weight.to(device)
+            prediction = model.forward(image.float())[0]
 
-        # Forward pass
-        prediction = model.forward(image.float())
+            loss = torch.nn.BCEWithLogitsLoss(weight=weight)(prediction, label)
+            
+            # Impartim loss-ul la numarul de poze pentru a pastra echilibrul matematic
+            loss = loss / len(images)
+            
+            # [SECRETUL ESTE AICI] - Facem backward IN INTERIORUL buclei!
+            # Asta sterge instantaneu istoricul memoriei, ramanand doar gradientii utiles.
+            loss.backward()
+            
+            # Salvam doar numarul pur pentru afisare (fara graficul din memorie)
+            batch_loss_val += loss.item() * len(images)
+            
+            y_pred = torch.sigmoid(prediction).item()
+            y_true = int(label.item())
+            y_preds.append(y_pred)
+            y_trues.append(y_true)
 
-        # Values
-        label = label[0]
-        weight = weight[0]
-        prediction = prediction[0]
-
-        # Loss
-        loss = torch.nn.BCEWithLogitsLoss(weight=weight)(prediction, label)
-
-        # Backward and Optimize
-        loss.backward()
+        # Facem pasul optimizatorului abia dupa ce am acumulat gradientii celor 8 pacienti
         optimizer.step()
+        
+        loss_value = batch_loss_val / len(images)
+        losses.append(loss_value)
 
-        # Prediction
-        y_pred = torch.sigmoid(prediction).item()
-        y_true = int(label.item())
-
-        y_preds.append(y_pred)
-        y_trues.append(y_true)
-
-        # Metric
         try:
             auc = metrics.roc_auc_score(y_trues, y_preds)
         except:
             auc = 0.5
 
-        # Loss
-        loss_value = loss.item()
-        losses.append(loss_value)
-
-        # print('{}. Train Loss: {:.4f},  Train AUC: {:.4f}, Label: {}, Weight: {:.4f}, Prediction: {:.4f}'.format(
-        #     i + 1, loss_value, auc, y_true, weight.item(), y_pred))
-
-        # Tensorboard
         writer.add_scalar('Train/Loss', loss_value, epoch * len(train_loader) + i)
         writer.add_scalar('Train/AUC', auc, epoch * len(train_loader) + i)
 
-        # Print every N
         if i > 0 and i % log_every == 0:
             _statement = """Epoch [{0} / {1}] Step: [{2} / {3}] avg_train_loss: {4} | train_auc: {5} | lr : {6}""".format(
-                    epoch + 1,
-                    num_epochs,
-                    i,
-                    total_step,
-                    np.round(np.mean(losses), 4),
-                    np.round(auc, 4),
-                    current_lr
-                )
+                    epoch + 1, num_epochs, i, total_step,
+                    np.round(np.mean(losses), 4), np.round(auc, 4), current_lr)
             print(_statement)
 
-        # print('Memory allocated: {:.2f} MiB'.format(torch.cuda.memory_allocated() / 1.049e6))
-        # print('Memory cached: {:.2f} MiB'.format(torch.cuda.memory_cached() / 1.049e6))
-
-        # Clean up
-        del image
-        del label
-        del weight
+        del images, labels, weights
         torch.cuda.empty_cache()
 
-    writer.add_scalar('Train/AUC_epoch', auc, epoch + i)
-
-    # Round metrics
     train_loss_epoch = np.round(np.mean(losses), 4)
     train_auc_epoch = np.round(auc, 4)
-
     return train_loss_epoch, train_auc_epoch
 
-
 def evaluate_model(model, val_loader, device, epoch, num_epochs, writer, log_file, current_lr, log_every=20):
-    
     print('[EVALUATE] Evaluate model')
-
     _ = model.eval()
 
     y_trues = []
@@ -432,66 +399,45 @@ def evaluate_model(model, val_loader, device, epoch, num_epochs, writer, log_fil
     losses = []
 
     with torch.no_grad():
+        for i, (indices, images, labels, weights) in enumerate(val_loader):
+            
+            batch_loss = 0
+            for j in range(len(images)):
+                image = images[j].to(device)
+                label = labels[j].to(device)
+                weight = weights[j].to(device)
 
-        for i, (index, image, label, weight) in enumerate(val_loader):
+                prediction = model.forward(image.float())[0]
 
-            # Copy to CUDA device
-            image = image.to(device)
-            label = label.to(device)
-            weight = weight.to(device)
-        
-            # Label, weight
-            label = label[0]
-            weight = weight[0]
+                loss = torch.nn.BCEWithLogitsLoss(weight=weight)(prediction, label)
+                batch_loss += loss
 
-            # Prediction
-            prediction = model.forward(image.float())[0]
-
-            # Loss
-            loss = torch.nn.BCEWithLogitsLoss(weight=weight)(prediction, label)
-            loss_value = loss.item()
+                probability = torch.sigmoid(prediction).item()
+                y_trues.append(int(label.item()))
+                y_preds.append(probability)
+                
+            loss_value = (batch_loss / len(images)).item()
             losses.append(loss_value)
 
-            # Sigmoid prob
-            probability = torch.sigmoid(prediction).item()
-
-            y_trues.append(int(label[0]))
-            y_preds.append(probability)
-
-            # AUC metric
             try:
                 auc = metrics.roc_auc_score(y_trues, y_preds)
             except:
                 auc = 0.5
 
-            # Print
-            # print('{}. Val Loss: {:.4f},  Val AUC: {:.4f}, Label: {}, Weight: {:.4f}, Prediction: {:.4f}, Sigmoid prob: {:.4f}'.format(
-            #     i + 1, loss_value, auc, label[0], weight[0], prediction[0], probability))
-
             writer.add_scalar('Val/Loss', loss_value, epoch * len(val_loader) + i)
             writer.add_scalar('Val/AUC', auc, epoch * len(val_loader) + i)
 
-            # Print every N
             if i > 0 and i % log_every == 0:
                 _statement = """[Epoch: {0} / {1} | Single batch number: {2} / {3}] avg_val_loss: {4} | val_auc: {5} | lr: {6}""".format(
-                        epoch + 1,
-                        num_epochs,
-                        i,
-                        len(val_loader),
-                        np.round(np.mean(losses), 4),
-                        np.round(auc, 4),
-                        current_lr
+                        epoch + 1, num_epochs, i, len(val_loader),
+                        np.round(np.mean(losses), 4), np.round(auc, 4), current_lr
                     )
                 print(_statement)
 
-            # Clean up
-            del image
-            del label
-            del weight
+            del images, labels, weights
             torch.cuda.empty_cache()
     
     writer.add_scalar('Val/AUC_epoch', auc, epoch + i)
-
     val_loss_epoch = np.round(np.mean(losses), 4)
     val_auc_epoch = np.round(auc, 4)
 
@@ -501,7 +447,6 @@ def evaluate_model(model, val_loader, device, epoch, num_epochs, writer, log_fil
 def get_lr(optimizer):
     for param_group in optimizer.param_groups:
         return param_group['lr']
-
 
 if __name__ == "__main__":
     args = parse_arguments()

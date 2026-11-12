@@ -8,6 +8,8 @@ from torchvision import transforms
 from transformations.augmentation import augment_images
 import config
 
+from src.preprocesare import aplica_pipeline_preprocesare
+
 PRETRAINED_CHANNELS = 3
 
 class MRDataset(Dataset):
@@ -80,9 +82,11 @@ class MRDataset(Dataset):
         # Slices for a patient
         array = np.load(self.paths[index])
 
+        #array = aplica_pipeline_preprocesare(array)
+
         # Transformation
-        if self.augment:
-            array = augment_images(array, self.train, self.augment, self.augment_prob, self.plane)
+        #if self.augment:
+         #   array = augment_images(array, self.train, self.augment, self.augment_prob, self.plane)
 
         # Repeat the images 3 times to use pre-trained models
         array = np.stack((array,) * PRETRAINED_CHANNELS, axis=1)

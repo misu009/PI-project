@@ -7,9 +7,14 @@ from src.models.choose import AdvancedMRNet
 
 def evalueaza_modelul():
     # CAILE AU FOST ACTUALIZATE PENTRU NOUA TA STRUCTURA
-    cale_model = 'models/model_salvat.pth'
-    cale_csv = 'dataset/valid_abnormal.csv'
-    folder_rmn = 'dataset/valid_files/axial/'
+    # CAILE ACTUALIZATE PENTRU MEDIUL GOOGLE COLAB
+    # Asigură-te că "Proiect_RMN" este numele shortcut-ului tău din Drive. 
+    # Pune numele complet al unuia dintre fișierele .pth din Drive-ul tău în locul [...]
+    cale_model = '/content/drive/MyDrive/Proiect_RMN/models/training/pretrained/model_experiment_1_abnormal_axial_train_auc_0.4882_val_auc_0.5447_train_loss_0.2687_val_loss_0.2794_epoch_1_arch_seresnet50_cut_vertical_augment_albumentations-group_augment-probability_0.5.pth' 
+    
+    # Acestea sunt căile create de scriptul tău de formatare a datelor (Pasul 1)
+    cale_csv = '/content/dataset/valid_abnormal.csv'
+    folder_rmn = '/content/dataset/valid/axial/'
 
     print("=> Incarcam modelul AI (SE-ResNet50)...")
     model = AdvancedMRNet(model_name='seresnet50', pretrained=False)
