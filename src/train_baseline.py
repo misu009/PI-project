@@ -267,8 +267,7 @@ LR: {}""".format(
     send(text)
 
 
-def train_model(model, train_loader, device, epoch, num_epochs, optimizer, writer,
-                log_file, current_lr, log_every, scaler, use_amp):
+def train_model(model, train_loader, device, epoch, num_epochs, optimizer, writer, log_file, current_lr, log_every, scaler, use_amp):
     print('[TRAIN] Train model')
     _ = model.train()
 
