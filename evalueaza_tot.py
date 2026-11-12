@@ -6,18 +6,11 @@ from sklearn.metrics import accuracy_score, roc_auc_score
 from src.models.choose import AdvancedMRNet
 
 def evalueaza_modelul():
-    # CAILE AU FOST ACTUALIZATE PENTRU NOUA TA STRUCTURA
-    # CAILE ACTUALIZATE PENTRU MEDIUL GOOGLE COLAB
-    # Asigură-te că "Proiect_RMN" este numele shortcut-ului tău din Drive. 
-    # Pune numele complet al unuia dintre fișierele .pth din Drive-ul tău în locul [...]
-    cale_model = '/content/drive/MyDrive/Proiect_RMN/models/training/pretrained/model_experiment_1_abnormal_axial_train_auc_0.4882_val_auc_0.5447_train_loss_0.2687_val_loss_0.2794_epoch_1_arch_seresnet50_cut_vertical_augment_albumentations-group_augment-probability_0.5.pth' 
-    
-    # Acestea sunt căile create de scriptul tău de formatare a datelor (Pasul 1)
-    cale_csv = '/content/dataset/valid_abnormal.csv'
-    folder_rmn = '/content/dataset/valid/axial/'
+    cale_model = 'models/model_salvat.pth'
+    cale_csv = 'dataset/valid_abnormal.csv'
+    folder_rmn = 'dataset/valid_files/axial/'
 
-    print("=> Incarcam modelul AI (SE-ResNet50)...")
-    model = AdvancedMRNet(model_name='seresnet50', pretrained=False)
+    model = AdvancedMRNet(model_name='resnet18', pretrained=False)
     
     checkpoint = torch.load(cale_model, map_location=torch.device('cpu'), weights_only=False)
     
@@ -28,14 +21,14 @@ def evalueaza_modelul():
         
     model.eval()
 
-    print(f"=> Citim baremul de corectare din: {cale_csv}")
+    print(f"Citim baremul de corectare din: {   cale_csv}")
     df = pd.read_csv(cale_csv, header=None, names=['id', 'label'])
     
     y_adevarat = [] 
     y_predictii_prob = [] 
     y_predictii_binar = [] 
     
-    print("=> Incepem analizarea celor 119 pacienti. Te rog asteapta...")
+    print("=> Incepem analizarea celor 119 pacienti")
     
     with torch.no_grad():
         for index, row in df.iterrows():
@@ -54,20 +47,15 @@ def evalueaza_modelul():
             tensor_rmn = torch.stack([tensor_rmn, tensor_rmn, tensor_rmn], dim=1)
             
             tensor_rmn = tensor_rmn.unsqueeze(0)
-            # ---------------------------
             
             rezultat_brut = model(tensor_rmn)
             probabilitate = torch.sigmoid(rezultat_brut).item()
             
-            # --- REPARATIA PENTRU LABEL ---
-            # Curatam si eticheta corecta (scoatem '_' si spatiile) si o transformam in numar (int)
             label_curatat = int(str(row['label']).replace('_', '').strip())
             y_adevarat.append(label_curatat)
-            # ------------------------------
             
             y_predictii_prob.append(probabilitate)
             
-            # Daca probabilitatea e >= 50%, zicem ca e bolnav (1), altfel sanatos (0)
             decizie = 1 if probabilitate >= 0.5 else 0   
             y_predictii_binar.append(decizie)
             

@@ -38,7 +38,6 @@ class MRDataset(Dataset):
         if self.train in ['train', 'valid']:
             
             # FOLDER
-            # Am inlocuit 'MRNet-v1.0' cu config.DATA_PATH
             self.folder_path = os.path.join(config.DATA_PATH, '{}/{}/'.format(self.train, plane))
             csv_path = os.path.join(config.DATA_PATH, '{}-{}.csv'.format(self.train, task))
             
